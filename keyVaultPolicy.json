@@ -1,0 +1,109 @@
+{
+    "properties": {
+        "name": "KV-Notifications",
+        "displayName": "Deploy an Event Grid Topic and Subscription to a Key Vault",
+        "description": "Deploy an Event Grid Topic and Subscription to a Key Vault",
+        "policyType": "Custom",
+        "mode": "All",
+        "parameters": {
+            "URI": {
+                "type": "String"
+            }
+        },
+        "policyRule": {
+            "if": {
+                "allof": [
+                    {
+                        "field": "type",
+                        "equals": "Microsoft.KeyVault/vaults"
+                    }
+                ]
+            },
+            "then": {
+                "effect": "deployIfNotExists",
+                "details": {
+                    "type": "Microsoft.EventGrid/eventSubscriptions",
+                    "existenceCondition": {
+                        "allof": [
+                            {
+                                "field": "name",
+                                "equals": "[field('name')]"
+                            },
+                            {
+                                "field": "Microsoft.EventGrid/eventSubscriptions/topic",
+                                "notEquals": "[parameters('URI')]"
+                            }
+                        ]
+                    },
+                    "roleDefinitionIds": [
+                        "/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c",
+                        "/providers/Microsoft.Authorization/roleDefinitions/428e0ff0-5e57-4d9c-a221-2c70d0e0a443",
+                        "/providers/Microsoft.Authorization/roleDefinitions/c12c1c16-33a1-487b-954d-41c89c60f349"
+                    ],
+                    "deployment": {
+                        "properties": {
+                            "mode": "incremental",
+                            "template": {
+                                "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                                "contentVersion": "1.0.0.0",
+                                "parameters": {
+                                    "keyVaultName": {
+                                        "type": "String"
+                                    },
+                                    "URI": {
+                                        "type": "String"
+                                    },
+                                    "location": {
+                                        "type": "String"
+                                    }
+                                },
+                                "resources": [
+                                    {
+                                        "type": "Microsoft.EventGrid/systemTopics",
+                                        "apiVersion": "2020-04-01-preview",
+                                        "name": "[parameters('keyVaultName')]",
+                                        "location": "[parameters('location')]",
+                                        "properties": {
+                                            "source": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+                                            "topicType": "Microsoft.KeyVault.Vaults"
+                                        }
+                                    },
+                                    {
+                                        "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
+                                        "apiVersion": "2020-04-01-preview",
+                                        "name": "[concat(parameters('keyVaultName'), '/', parameters('keyVaultName'))]",
+                                        "dependsOn": [
+                                            "[resourceId('Microsoft.EventGrid/systemTopics', parameters('keyVaultName'))]"
+                                        ],
+                                        "properties": {
+                                            "destination": {
+                                                "properties": {
+                                                    "endpointUrl": "[parameters('URI')]",
+                                                    "maxEventsPerBatch": 1,
+                                                    "preferredBatchSizeInKilobytes": 64
+                                                },
+                                                "endpointType": "WebHook"
+                                            },
+                                            "filter": {}
+                                        }
+                                    }
+                                ]
+                            },
+                            "parameters": {
+                                "keyVaultName": {
+                                    "value": "[field('name')]"
+                                },
+                                "URI": {
+                                    "value": "[parameters('URI')]"
+                                },
+                                "location": {
+                                    "value": "[field('location')]"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
